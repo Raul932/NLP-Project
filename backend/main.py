@@ -233,9 +233,11 @@ class SentenceSimilarityResponse(BaseModel):
     sentence2: str
     algorithm: str
     similarity: float
-    words1: List[str]
-    words2: List[str]
-    matrix: List[List[float]]  # Similarity matrix [words1 x words2]
+    words1: List[str]  # All words from sentence 1
+    words2: List[str]  # All words from sentence 2
+    words1_found: List[bool]  # True if word exists in RoWordNet
+    words2_found: List[bool]  # True if word exists in RoWordNet
+    matrix: List[List[Optional[float]]]  # Similarity matrix, None if word not found
 
 
 # API Endpoints
@@ -443,65 +445,100 @@ async def calculate_sentence_sim(request: SentenceSimilarityRequest):
     lemmatizer = RomanianLemmatizer(wordnet_lookup=wordnet_exists)
     
     # Tokenize sentences (including Romanian diacritics)
-    words1 = re.findall(r'\b[a-zA-ZăâîșțĂÂÎȘȚ]+\b', sentence1.lower())
-    words2 = re.findall(r'\b[a-zA-ZăâîșțĂÂÎȘȚ]+\b', sentence2.lower())
+    words1_raw = re.findall(r'\b[a-zA-ZăâîșțĂÂÎȘȚ]+\b', sentence1.lower())
+    words2_raw = re.findall(r'\b[a-zA-ZăâîșțĂÂÎȘȚ]+\b', sentence2.lower())
     
-    # Lemmatize and filter to words in RoWordNet
-    words1_lemmas = []
-    for w in words1:
+    # Remove duplicates while preserving order
+    words1_raw = list(dict.fromkeys(words1_raw))
+    words2_raw = list(dict.fromkeys(words2_raw))
+    
+    # Process each word - try to find in RoWordNet
+    words1_processed = []
+    words1_found = []
+    for w in words1_raw:
         lemma = lemmatizer.lemmatize(w)
         if loader.get_synsets_for_word(lemma):
-            words1_lemmas.append(lemma)
+            words1_processed.append(lemma)
+            words1_found.append(True)
         elif loader.get_synsets_for_word(w):
-            words1_lemmas.append(w)
+            words1_processed.append(w)
+            words1_found.append(True)
+        else:
+            words1_processed.append(w)
+            words1_found.append(False)
     
-    words2_lemmas = []
-    for w in words2:
+    words2_processed = []
+    words2_found = []
+    for w in words2_raw:
         lemma = lemmatizer.lemmatize(w)
         if loader.get_synsets_for_word(lemma):
-            words2_lemmas.append(lemma)
+            words2_processed.append(lemma)
+            words2_found.append(True)
         elif loader.get_synsets_for_word(w):
-            words2_lemmas.append(w)
+            words2_processed.append(w)
+            words2_found.append(True)
+        else:
+            words2_processed.append(w)
+            words2_found.append(False)
     
-    # Use lemmatized words
-    words1_filtered = list(dict.fromkeys(words1_lemmas))  # Remove duplicates, preserve order
-    words2_filtered = list(dict.fromkeys(words2_lemmas))
+    # Check if we have any valid words
+    has_valid_words1 = any(words1_found)
+    has_valid_words2 = any(words2_found)
     
-    if not words1_filtered or not words2_filtered:
+    if not has_valid_words1 or not has_valid_words2:
         return SentenceSimilarityResponse(
             sentence1=sentence1,
             sentence2=sentence2,
             algorithm=algorithm.upper(),
             similarity=0.0,
-            words1=words1_filtered,
-            words2=words2_filtered,
+            words1=words1_processed,
+            words2=words2_processed,
+            words1_found=words1_found,
+            words2_found=words2_found,
             matrix=[]
         )
     
-    # Build similarity matrix
+    # Build similarity matrix (including all words, None for not-found)
     alg = algorithms[algorithm]
     sim_matrix = []
-    for w1 in words1_filtered:
+    valid_sims = []  # For calculating overall similarity
+    
+    for i, w1 in enumerate(words1_processed):
         row = []
-        for w2 in words2_filtered:
-            if w1 == w2:
+        for j, w2 in enumerate(words2_processed):
+            if not words1_found[i] or not words2_found[j]:
+                row.append(None)  # Word not in RoWordNet
+            elif w1 == w2:
                 row.append(1.0)
+                valid_sims.append(1.0)
             else:
                 sim = alg.get_max_similarity(w1, w2)
                 row.append(round(sim, 4))
+                valid_sims.append(sim)
         sim_matrix.append(row)
     
-    # Calculate overall similarity using harmonic mean of bidirectional averages
-    # Direction 1: for each word in s1, find best match in s2
-    sum1 = sum(max(row) if row else 0.0 for row in sim_matrix)
-    avg1 = sum1 / len(words1_filtered) if words1_filtered else 0.0
+    # Calculate overall similarity from valid pairs only
+    # Direction 1: for each found word in s1, find best match in s2
+    sum1 = 0.0
+    count1 = 0
+    for i, found in enumerate(words1_found):
+        if found:
+            row_vals = [sim_matrix[i][j] for j in range(len(words2_processed)) if words2_found[j] and sim_matrix[i][j] is not None]
+            if row_vals:
+                sum1 += max(row_vals)
+                count1 += 1
+    avg1 = sum1 / count1 if count1 > 0 else 0.0
     
-    # Direction 2: for each word in s2, find best match in s1
+    # Direction 2: for each found word in s2, find best match in s1
     sum2 = 0.0
-    for j in range(len(words2_filtered)):
-        col_max = max(sim_matrix[i][j] for i in range(len(words1_filtered)))
-        sum2 += col_max
-    avg2 = sum2 / len(words2_filtered) if words2_filtered else 0.0
+    count2 = 0
+    for j, found in enumerate(words2_found):
+        if found:
+            col_vals = [sim_matrix[i][j] for i in range(len(words1_processed)) if words1_found[i] and sim_matrix[i][j] is not None]
+            if col_vals:
+                sum2 += max(col_vals)
+                count2 += 1
+    avg2 = sum2 / count2 if count2 > 0 else 0.0
     
     # Harmonic mean
     if avg1 + avg2 == 0:
@@ -514,8 +551,10 @@ async def calculate_sentence_sim(request: SentenceSimilarityRequest):
         sentence2=sentence2,
         algorithm=algorithm.upper(),
         similarity=round(similarity, 4),
-        words1=words1_filtered,
-        words2=words2_filtered,
+        words1=words1_processed,
+        words2=words2_processed,
+        words1_found=words1_found,
+        words2_found=words2_found,
         matrix=sim_matrix
     )
 

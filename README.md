@@ -1,170 +1,132 @@
 # RoWordNet Similarity
 
-A web application for computing semantic similarity between Romanian words using RoWordNet (Romanian WordNet). The application implements 8 different similarity algorithms from scratch.
+A web application for computing semantic similarity between Romanian words using 8 different algorithms, similar to [WS4J](http://ws4jdemo.appspot.com/) for English.
+
+![RoWordNet Similarity](https://img.shields.io/badge/Language-Romanian-blue)
+![Python](https://img.shields.io/badge/Python-3.8+-green)
+![Next.js](https://img.shields.io/badge/Next.js-14-black)
 
 ## Features
 
 - **8 Similarity Algorithms**: PATH, WUP, LCH, RES, JCN, LIN, LESK, HSO
-- **Modern UI**: Dark theme with gradient accents and glassmorphism
-- **Synset Information**: View synset details including definitions
-- **Visual Comparison**: Similarity bars for easy comparison
+- **Word Similarity**: Compare individual words with sense selection (word#pos#sense)
+- **Sentence Similarity**: Compare sentences with similarity matrix visualization
+- **Romanian Lemmatization**: Handles inflected word forms
+- **Modern UI**: Dark theme with glassmorphism effects
 
-## Project Structure
+## Quick Start (Windows)
 
+### Prerequisites
+
+1. **Python 3.8+** - Install from [python.org](https://www.python.org/downloads/) or use [Anaconda](https://www.anaconda.com/download)
+2. **Node.js 18+** - Install from [nodejs.org](https://nodejs.org/)
+
+### Running the Application
+
+1. **Double-click `START_APP.bat`**
+2. Wait for the servers to start
+3. Browser will open automatically at http://localhost:3000
+4. **Close the command window to stop the application**
+
+## Manual Installation
+
+### Backend (Python/FastAPI)
+
+```bash
+cd backend
+pip install -r requirements.txt
+python -m uvicorn main:app --reload --port 8000
 ```
-NLP-Project/
-├── backend/                    # FastAPI Python backend
-│   ├── main.py                 # API endpoints
-│   ├── rowordnet_loader.py     # RoWordNet pickle loader
-│   ├── requirements.txt        # Python dependencies
-│   └── algorithms/             # Similarity algorithms
-│       ├── path_similarity.py  # PATH: 1/path_length
-│       ├── wup_similarity.py   # WUP: Wu-Palmer
-│       ├── lch_similarity.py   # LCH: Leacock-Chodorow
-│       ├── res_similarity.py   # RES: Resnik IC
-│       ├── jcn_similarity.py   # JCN: Jiang-Conrath
-│       ├── lin_similarity.py   # LIN: Lin normalized IC
-│       ├── lesk_similarity.py  # LESK: Gloss overlap
-│       └── hso_similarity.py   # HSO: Hirst-St-Onge
-├── frontend/                   # Next.js React frontend
-│   ├── src/
-│   │   ├── app/
-│   │   │   ├── page.tsx        # Main page
-│   │   │   ├── layout.tsx      # Root layout
-│   │   │   └── globals.css     # Global styles
-│   │   └── components/
-│   │       ├── SimilarityForm.tsx
-│   │       └── ResultsTable.tsx
-│   ├── package.json
-│   └── next.config.js
-└── rowordnet.pickle            # RoWordNet data file
+
+### Frontend (Next.js)
+
+```bash
+cd frontend
+npm install
+npm run dev
 ```
+
+Then open http://localhost:3000 in your browser.
+
+## Usage
+
+### Word Similarity
+
+Enter two Romanian words to compare. Use the format `word#pos#sense` for specific senses:
+- `câine` - any sense
+- `câine#n#1` - noun, first sense
+- `merge#v#1` - verb, first sense
+
+**POS codes**: n (noun), v (verb), a (adjective), r (adverb)
+
+### Sentence Similarity
+
+Enter two sentences in Romanian. The app will:
+1. Tokenize and lemmatize words
+2. Find words in RoWordNet
+3. Build a similarity matrix
+4. Calculate overall sentence similarity
+
+Words not found in RoWordNet are marked with ~~strikethrough~~.
 
 ## Algorithms
 
 | Algorithm | Formula | Description |
 |-----------|---------|-------------|
-| **PATH** | `1 / path_length` | Inverse of shortest path between synsets |
-| **WUP** | `2*depth(LCS) / (depth(s1)+depth(s2))` | Wu-Palmer depth-based similarity |
-| **LCH** | `-log(path / 2*max_depth)` | Leacock-Chodorow log-scaled path |
-| **RES** | `IC(LCS)` | Resnik Information Content of LCS |
-| **JCN** | `1 / (IC(s1)+IC(s2)-2*IC(LCS))` | Jiang-Conrath IC distance |
-| **LIN** | `2*IC(LCS) / (IC(s1)+IC(s2))` | Lin normalized IC similarity |
-| **LESK** | `gloss_overlap` | Word overlap in definitions |
-| **HSO** | `C - path - k*dir_changes` | Hirst-St-Onge with direction penalty |
+| PATH | 1 / path_length | Inverse of shortest path |
+| WUP | 2*depth(LCS) / (depth(s1)+depth(s2)) | Wu-Palmer similarity |
+| LCH | -log(path / 2*max_depth) | Leacock-Chodorow |
+| RES | IC(LCS) | Resnik (Information Content) |
+| JCN | 1 / (IC(s1)+IC(s2)-2*IC(LCS)) | Jiang-Conrath |
+| LIN | 2*IC(LCS) / (IC(s1)+IC(s2)) | Lin similarity |
+| LESK | gloss_overlap | Gloss overlap count |
+| HSO | C - path - k*dir_changes | Hirst-St-Onge |
 
-## Requirements
+## Project Structure
 
-### Backend
-- Python 3.8+
-- FastAPI
-- Uvicorn
-- NetworkX
-
-### Frontend
-- Node.js 18+
-- npm or yarn
-
-## Installation
-
-### 1. Clone the Repository
-
-```bash
-git clone <repository-url>
-cd NLP-Project
+```
+NLP-Project/
+├── START_APP.bat          # Windows launcher
+├── STOP_APP.bat           # Stop servers
+├── rowordnet.pickle       # RoWordNet database (required)
+├── backend/
+│   ├── main.py            # FastAPI application
+│   ├── rowordnet_loader.py
+│   ├── lemmatizer.py      # Romanian lemmatizer
+│   ├── requirements.txt
+│   └── algorithms/        # Similarity implementations
+└── frontend/
+    ├── package.json
+    └── src/
+        ├── app/
+        └── components/
 ```
 
-### 2. Backend Setup
+## Limitations
 
-```bash
-cd backend
-
-# Create virtual environment (optional but recommended)
-python -m venv venv
-
-# Activate virtual environment
-# On Windows:
-venv\Scripts\activate
-# On macOS/Linux:
-source venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-### 3. Frontend Setup
-
-```bash
-cd frontend
-
-# Install dependencies
-npm install
-```
-
-## Running the Application
-
-### 1. Start the Backend Server
-
-```bash
-cd backend
-uvicorn main:app --reload --port 8000
-```
-
-The API will be available at `http://localhost:8000`
-
-### 2. Start the Frontend Server
-
-In a new terminal:
-
-```bash
-cd frontend
-npm run dev
-```
-
-The web application will be available at `http://localhost:3000`
-
-## Usage
-
-1. Open the web browser and navigate to `http://localhost:3000`
-2. Enter two Romanian words in the input fields
-3. Click "Calculate Similarity" or use one of the example word pairs
-4. View the similarity scores from all 8 algorithms
-5. See synset details for both words
+- RoWordNet has limited vocabulary (~50k synsets vs ~117k in English WordNet)
+- Not all word senses are included
+- Works best with nouns in base form (lemmas)
+- Requires Romanian diacritics (ă, â, î, ș, ț)
 
 ## API Endpoints
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/` | GET | API info |
-| `/health` | GET | Health check |
-| `/similarity` | POST | Calculate similarity between two words |
-| `/synsets/{word}` | GET | Get synsets for a word |
-| `/algorithms` | GET | List available algorithms |
+- `POST /similarity` - Calculate word similarity
+- `POST /sentence-similarity` - Calculate sentence similarity
+- `GET /synsets/{word}` - Get synsets for a word
+- `GET /algorithms` - List available algorithms
+- `GET /health` - Health check
 
-### Example API Request
+## Technologies
 
-```bash
-curl -X POST http://localhost:8000/similarity \
-  -H "Content-Type: application/json" \
-  -d '{"word1": "caine", "word2": "pisica"}'
-```
+- **Backend**: Python, FastAPI, RoWordNet
+- **Frontend**: Next.js, React, TypeScript
+- **Styling**: CSS with glassmorphism effects
 
-## Troubleshooting
+## Authors
 
-### PowerShell Script Execution Error (Windows)
-
-If you see an error about scripts being disabled:
-
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-```
-
-Or run commands using `cmd` instead of PowerShell.
-
-### RoWordNet Loading Issues
-
-Make sure `rowordnet.pickle` is in the project root directory (same level as `backend/` and `frontend/` folders).
+NLP Project - Faculty Project
 
 ## License
 
-This project is for educational purposes - NLP Course Project.
+MIT License

@@ -34,7 +34,9 @@ interface SentenceSimilarityResponse {
     similarity: number;
     words1: string[];
     words2: string[];
-    matrix: number[][];
+    words1_found: boolean[];
+    words2_found: boolean[];
+    matrix: (number | null)[][];
 }
 
 // Algorithm descriptions for info section
@@ -443,9 +445,11 @@ export default function Home() {
                                                             background: 'rgba(118, 75, 162, 0.2)',
                                                             border: '1px solid var(--border-glow)',
                                                             textAlign: 'center',
-                                                            color: 'var(--accent-purple)'
+                                                            color: sentenceResults.words2_found?.[j] ? 'var(--accent-purple)' : 'var(--text-secondary)',
+                                                            textDecoration: sentenceResults.words2_found?.[j] ? 'none' : 'line-through'
                                                         }}>
                                                             {w2}
+                                                            {!sentenceResults.words2_found?.[j] && <span style={{ fontSize: '0.7rem', marginLeft: '0.25rem' }}>✗</span>}
                                                         </th>
                                                     ))}
                                                 </tr>
@@ -458,23 +462,29 @@ export default function Home() {
                                                             background: 'rgba(102, 126, 234, 0.1)',
                                                             border: '1px solid var(--border-glow)',
                                                             fontWeight: 600,
-                                                            color: 'var(--accent-blue)'
+                                                            color: sentenceResults.words1_found?.[i] ? 'var(--accent-blue)' : 'var(--text-secondary)',
+                                                            textDecoration: sentenceResults.words1_found?.[i] ? 'none' : 'line-through'
                                                         }}>
                                                             {sentenceResults.words1[i]}
+                                                            {!sentenceResults.words1_found?.[i] && <span style={{ fontSize: '0.7rem', marginLeft: '0.25rem' }}>✗</span>}
                                                         </td>
                                                         {row.map((val, j) => (
                                                             <td key={j} style={{
                                                                 padding: '0.75rem',
                                                                 border: '1px solid var(--border-glow)',
                                                                 textAlign: 'center',
-                                                                background: val >= 0.8
-                                                                    ? 'rgba(46, 213, 115, 0.3)'
-                                                                    : val >= 0.5
-                                                                        ? 'rgba(255, 200, 0, 0.2)'
-                                                                        : 'transparent',
-                                                                color: val >= 0.8 ? 'var(--accent-green)' : 'var(--text-primary)'
+                                                                background: val === null
+                                                                    ? 'rgba(100, 100, 100, 0.1)'
+                                                                    : val >= 0.8
+                                                                        ? 'rgba(46, 213, 115, 0.3)'
+                                                                        : val >= 0.5
+                                                                            ? 'rgba(255, 200, 0, 0.2)'
+                                                                            : 'transparent',
+                                                                color: val === null
+                                                                    ? 'var(--text-secondary)'
+                                                                    : val >= 0.8 ? 'var(--accent-green)' : 'var(--text-primary)'
                                                             }}>
-                                                                {val.toFixed(4)}
+                                                                {val === null ? '—' : val.toFixed(4)}
                                                             </td>
                                                         ))}
                                                     </tr>
